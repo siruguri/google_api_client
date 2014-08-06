@@ -43,6 +43,27 @@ class GoogleContactsApi < GoogleApiClient::GoogleApiClient
     @http.get(@endpoint, @headers)
   end
 
+  def new_contact(name_card)
+    # Returns the response
+    puts "Creating new contact..."
+    new_entry_xml = generate_atom(name_card)
+    headers = {'Content-Type' => 'application/atom+xml'}
+
+    resp=self.post_data(new_entry_xml, headers)
+    atom_to_array(resp.body)
+  end
+
+  def delete_all_contacts(atom_str)
+    return '' if (x=atom_to_array(atom_str)['entry']).nil?
+
+    x.each do |contact|
+      delete_ept = (contact['link'].select { |l| l['rel']=='edit' })[0]['href']
+      puts ">>> Deleting #{delete_ept}"
+      self.delete_data(delete_ept)
+    end
+  end
+
+  private
   def generate_atom(options)
     entry_elements = 
       [["atom:entry", {attr: {"xmlns:atom" => 'http://www.w3.org/2005/Atom', "xmlns:gd" => 'http://schemas.google.com/g/2005'}, children: [
@@ -57,27 +78,6 @@ class GoogleContactsApi < GoogleApiClient::GoogleApiClient
     atom_xml(entry_elements)
   end
 
-  def new_contact(name_card)
-    # Returns the response
-    puts "Creating new contact..."
-    new_entry_xml = api_client.generate_atom(name_card)
-    headers = {'Content-Type' => 'application/atom+xml'}
-
-    resp=self.post_data(new_entry_xml, headers); pp resp.body
-    atom_array(resp)
-  end
-
-  def delete_all_contacts(atom_str)
-    return '' if (x=atom_to_array(atom_str)['entry']).nil?
-
-    x.each do |contact|
-      delete_ept = (contact['link'].select { |l| l['rel']=='edit' })[0]['href']
-      puts ">>> Deleting #{delete_ept}"
-      self.delete_data(delete_ept)
-    end
-  end
-
-  private
   def atom_to_array(atom_str)
     return XmlSimple.xml_in(atom_str)
   end
@@ -110,9 +110,9 @@ resp = api_client.contact_list
 
 #  doc =  XmlSimple.xml_in(my_list.body)
 pp resp.body
-api_client.delete_all_contacts resp.body
+# api_client.delete_all_contacts resp.body
 
 name_card = {fullname: 'Elizabeth Bentest', familyname: 'Bentest', email: 'elizabethbentest@gmail.com', displayname: 'E. Bentest, Esq.'}
 
-# api_client.new_contact(name_card)
+#ret = api_client.new_contact(name_card); pp ret
 
