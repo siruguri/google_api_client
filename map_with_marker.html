@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8">  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+      html { height: 100% }
+      body { height: 100%; margin: 0; padding: 0 }
+      #map_canvas { height: 100% }
+    </style>
+    <script type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDs0rqSZNs_ESjF2yHJcxE76mgeR_tkk88&sensor=false">
+    </script>
+    <script type="text/javascript">
+      function make_marker(lat, long, marker_title, map) {
+        var myLatlng = new google.maps.LatLng(lat, long);
+        var marker = new google.maps.Marker({
+          position: myLatlng,
+          map: map,
+          title:marker_title
+        });
+      }
+
+      function initialize() {
+
+      var mapOptions = {
+      zoom: 3,
+      center: new google.maps.LatLng(35.7909, 24.7731),
+      mapTypeId: google.maps.MapTypeId.ROADMAP
+      }
+      var map = new google.maps.Map(document.getElementById("map_canvas"), mapOptions);
+make_marker(37.7700004578, -122.400001526, "San Francisco", map);
+make_marker(38.9399986267, -77.0599975586, "Washington", map);
+make_marker(29.7800006866, -95.5999984741, "Houston", map);
+make_marker(33.9799995422, -84.3300018311, "Atlanta", map);
+make_marker(-2.21000003815, -79.9000015259, "Guayaquil", map);
+make_marker(33.5099983215, -112.069999695, "Phoenix", map);
+make_marker(45.5200004578, -122.63999939, "Portland", map);
+make_marker(34.0699996948, -118.349998474, "Los Angeles", map);
+make_marker(49.2700004578, -123.099998474, "Vancouver", map);
+make_marker(39.9500007629, -75.1399993896, "Philadelphia", map);
+make_marker(41.8899993896, -87.6299972534, "Chicago", map);
+make_marker(43.6500015259, -79.4000015259, "Toronto", map);
+make_marker(44.9599990845, -93.1999969482, "Saint Paul", map);
+make_marker(35.8300018311, -78.8399963379, "Morrisville", map);
+make_marker(4.05999994278, 9.71000003815, "Douala", map);
+make_marker(29.9400005341, -90.0699996948, "New Orleans", map);
+make_marker(45.5299987793, -73.6100006104, "Montréal", map);
+make_marker(51.5200004578, -0.10000000149, "London", map);
+make_marker(53.5499992371, 10.0, "Hamburg", map);
+make_marker(32.7999992371, -79.9499969482, "Charleston", map);
+make_marker(5.32999992371, -4.03000020981, "Abidjan", map);
+make_marker(33.8800010681, 35.5, "Beirut", map);
+make_marker(44.7700004578, -85.6999969482, "Traverse City", map);
+make_marker(-33.8699989319, 151.210006714, "Sydney", map);
+make_marker(-26.1900005341, 28.0400009155, "Johannesburg", map);
+make_marker(37.3800010681, -122.019996643, "Sunnyvale", map);
+make_marker(34.0299987793, -118.199996948, "Los Angeles", map);
+make_marker(34.2299995422, -77.9400024414, "Wilmington", map);
+make_marker(48.8600006104, 2.33999991417, "Paris", map);
+make_marker(30.1599998474, -92.0299987793, "Lafayette", map);
+make_marker(4.15999984741, 9.22999954224, "Buéa", map);
+make_marker(53.4799995422, -2.23000001907, "Manchester", map);
+make_marker(6.30999994278, -10.8000001907, "Monrovia", map);
+make_marker(41.0099983215, 28.9599990845, "Istanbul", map);
+make_marker(-37.8100013733, 144.960006714, "Melbourne", map);
+make_marker(38.7799987793, -77.6600036621, "Gainesville", map);
+make_marker(41.3300018311, -72.9400024414, "New Haven", map);
+make_marker(39.2999992371, -76.6100006104, "Baltimore", map);
+make_marker(32.7400016785, -117.089996338, "San Diego", map);
+make_marker(17.3999996185, 78.4800033569, "Hyderabad", map);
+make_marker(30.6200008392, -88.8499984741, "Ocean Springs", map);
+make_marker(42.3100013733, -71.0800018311, "Boston", map);
+make_marker(39.9700012207, -83.0, "Columbus", map);
+make_marker(52.2000007629, 0.140000000596, "Cambridge", map);
+make_marker(11.0100002289, 76.9599990845, "Koyampattur", map);
+make_marker(46.2099990845, 6.13999986649, "Genève", map);
+make_marker(-34.9300003052, 138.600006104, "Adelaide", map);
+make_marker(44.4399986267, 26.1000003815, "Bucharest", map);
+make_marker(46.7799987793, 23.5900001526, "Cluj-Napoca", map);
+make_marker(35.1300010681, -90.0, "Memphis", map);
+make_marker(13.0900001526, 80.2699966431, "Chennai", map);
+make_marker(48.1399993896, 11.5799999237, "München", map);
+make_marker(14.6300001144, -90.5500030518, "Guatemala", map);
+make_marker(47.6100006104, -122.300003052, "Seattle", map);
+make_marker(41.0099983215, 28.9599990845, "Istanbul", map);
+make_marker(1.29999995232, 103.849998474, "Singapore", map);
+make_marker(47.4300003052, -120.330001831, "Wenatchee", map);
+make_marker(44.4900016785, -73.2300033569, "Burlington", map);
+make_marker(4.78000020981, 7.0, "Port Harcourt", map);
+make_marker(39.6800003052, -104.959999084, "Denver", map);
+make_marker(-36.8499984741, 174.759994507, "Auckland", map);
+make_marker(21.3299999237, -157.830001831, "Honolulu", map);
+make_marker(-41.2799987793, 174.779998779, "Wellington", map);
+make_marker(44.1899986267, -72.8399963379, "Waitsfield", map);
+make_marker(40.7700004578, -73.6600036621, "Roslyn", map);
+make_marker(9.43999958038, -0.00999999977648, "Yendi", map);
+make_marker(30.1800003052, -97.7300033569, "Austin", map);
+      }
+    </script>
+  </head>
+  <body onload="initialize()">
+    <div id="map_canvas" style="width:1000px; height:300px"></div>
+  </body>
+</html>
+
