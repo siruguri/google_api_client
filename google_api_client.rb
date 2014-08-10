@@ -27,7 +27,7 @@ module GoogleApiClient
       return '200' if @token
 
       path = '/accounts/ClientLogin'
-      data = "accountType=#{@config['client_login_account_type']}&Email=#{@config['client_login_email']}&Passwd=#{@config['client_login_pwd']}&service=#{@config['client_login_service_name']}&source=#{config['source']}"
+      data = "accountType=#{@config['client_login_account_type']}&Email=#{@config['client_login_email']}&Passwd=#{@config['client_login_pwd']}&service=#{@config['client_login_service_name']}&source=#{@config['source']}"
       headers = {"Content-Type"=>"application/x-www-form-urlencoded"}
 
       # Post the request and print out the response to retrieve our authentication token
@@ -65,14 +65,17 @@ module GoogleApiClient
       resp
     end
 
-    def post_data(post_data, headers=nil)
+    def post_data(post_data, headers: nil, endpoint: nil) 
+      # Post to the endpoint
+      _e = endpoint || @endpoint
+
       if headers.nil?
         h = @headers
       else
         h = @headers.merge headers
       end
 
-      @http.post(@endpoint, post_data, h)
+      @http.post(_e, post_data, h)
     end
   end
 

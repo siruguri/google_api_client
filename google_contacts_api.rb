@@ -63,6 +63,7 @@ module GoogleContactsApi
     def initialize config
       super config
       @endpoint= config[:endpoint] || '/m8/feeds/contacts/default/full';
+      @batch_endpoint = config[:batch_endpoint] || '/m8/feeds/contacts/default/full/batch'
     end
 
     def initialize_batch
@@ -79,8 +80,14 @@ module GoogleContactsApi
     end
 
     def contact_list
+      auth_code = self.authenticate
+      if auth_code.nil?
+        raise AuthenticationException, "Authentication failed."
+      end
+
       @http.get(@endpoint, @headers)
     end
+    alias :all_contacts :contact_list
 
     def new_contact_atom
       return ContactAtom.new
@@ -91,7 +98,7 @@ module GoogleContactsApi
       new_entry_xml = generate_atom(name_card)
       headers = {'Content-Type' => 'application/atom+xml'}
 
-      resp=self.post_data(new_entry_xml, headers); pp resp.body
+      resp=self.post_data(new_entry_xml, headers: headers); pp resp.body
       atom_to_array(resp.body)
     end
 
@@ -111,7 +118,7 @@ module GoogleContactsApi
       counter = 0
       batch_id = 1
       current_batch = self.initialize_batch
-      current_batch['entry'] = []
+      current_batch['feed'][0]['entry'] = []
 
       entries.each do |entry|
         counter += 1
@@ -119,26 +126,35 @@ module GoogleContactsApi
         batch_id += 1
 
         child.merge! entry.children
-        current_batch['entry'] << child
+        child['category'] = child['atom:category']
+        child.delete 'atom:category'
+
+        current_batch['feed'][0]['entry'] << child
 
         if counter % 100 == 0
           batches << current_batch 
-          pp current_batch
+          # puts current_batch.to_s
+
           current_batch = @api_client.initialize_batch
-          current_batch['entry'] = []
+          current_batch['feed'][0]['entry'] = []
         end
       end
 
-      if current_batch['entry'].size > 0
-          pp current_batch
+      if current_batch['feed'][0]['entry'].size > 0
+        batches << current_batch
+        # puts current_batch.to_s
       end
-      return
+
 
       auth_code = self.authenticate
       if auth_code.nil?
         raise AuthenticationException, "Authentication failed."
       end
 
+      batches.each do |b|
+        feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); puts feed_post
+        resp = self.post_data(feed_post, endpoint: @batch_endpoint); pp resp.body
+      end
       # Return a response at the end of this.
     end
 
