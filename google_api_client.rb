@@ -70,13 +70,12 @@ module GoogleApiClient
       _e = endpoint || @endpoint
       puts "Posting ... \n #{post_data} \n ... to #{_e}"
 
-      if headers.nil?
-        h = @headers
-      else
+      self.authenticate
+      h = @headers
+      unless headers.nil?
         h = @headers.merge headers
       end
 
-      self.authenticate
       @http.post(_e, post_data, h)
     end
   end
