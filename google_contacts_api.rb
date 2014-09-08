@@ -1,3 +1,4 @@
+require 'pry-byebug'
 require 'xmlsimple'
 require 'pp'
 require_relative "./google_api_client"
@@ -60,10 +61,12 @@ module GoogleContactsApi
   end
 
   class GoogleContactsApi < GoogleApiClient::GoogleApiClient
+    attr_reader :contact_list
     def initialize config
       super config
-      @endpoint= config[:endpoint] || '/m8/feeds/contacts/default/full';
-      @batch_endpoint = config[:batch_endpoint] || '/m8/feeds/contacts/default/full/batch'
+      @endpoint= config['endpoint'] || '/m8/feeds/contacts/default/full';
+      @batch_endpoint = config['batch_endpoint'] || '/m8/feeds/contacts/default/full/batch'
+      @contact_list = nil
     end
 
     def initialize_batch
@@ -79,15 +82,11 @@ module GoogleContactsApi
       _h
     end
 
-    def contact_list
-      auth_code = self.authenticate
-      if auth_code.nil?
-        raise AuthenticationException, "Authentication failed."
-      end
-
-      @http.get(@endpoint, @headers)
+    def fetch_all_contacts
+      self.authenticate
+      contact_resp = @http.get(@endpoint, @headers)
+      @contact_list = atom_to_array contact_resp.body
     end
-    alias :all_contacts :contact_list
 
     def new_contact_atom
       return ContactAtom.new
@@ -102,8 +101,8 @@ module GoogleContactsApi
       atom_to_array(resp.body)
     end
 
-    def delete_all_contacts(atom_str)
-      return '' if (x=atom_to_array(atom_str)['entry']).nil?
+    def delete_all_contacts(atom_entries)
+      return '' if atom_entries['entry'].nil?
 
       x.each do |contact|
         delete_ept = (contact['link'].select { |l| l['rel']=='edit' })[0]['href']
@@ -112,7 +111,8 @@ module GoogleContactsApi
       end
     end
 
-    def send_batch(entries)
+    def send_batch(entries, command='insert')
+      # entries is assumed to be an object of class ContactAtom
       batches = []
 
       counter = 0
@@ -122,13 +122,23 @@ module GoogleContactsApi
 
       entries.each do |entry|
         counter += 1
-        child = {'batch:id' => [batch_id], 'batch:operation' => {'type' => 'insert'}}
+        child = {'batch:id' => [batch_id], 'batch:operation' => [{'type' => "#{command}"}]}
         batch_id += 1
 
-        child.merge! entry.children
-        child['category'] = child['atom:category']
-        child.delete 'atom:category'
+        if command == 'insert'
+          if entry.class==ContactAtom
+            child.merge! entry.children
+          else
+            child.merge! entry
+          end
+        elsif command == 'delete'
+          child.merge! entry.select { |k,v| k=='id' || k == 'link'}
+        end
 
+        if child['atom:category'] # There won't be any, if we didn't run an insert.
+          child['category'] = child['atom:category'] 
+          child.delete 'atom:category'
+        end
         current_batch['feed'][0]['entry'] << child
 
         if counter % 100 == 0
@@ -145,17 +155,13 @@ module GoogleContactsApi
         # puts current_batch.to_s
       end
 
-
-      auth_code = self.authenticate
-      if auth_code.nil?
-        raise AuthenticationException, "Authentication failed."
-      end
-
       batches.each do |b|
-        feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); puts feed_post
+        feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); 
+        feed_post = "<?xml version='1.0' encoding='UTF-8'?>\n#{feed_post}"
         resp = self.post_data(feed_post, endpoint: @batch_endpoint); pp resp.body
       end
-      # Return a response at the end of this.
+
+      # TODO Return a response at the end of this.
     end
 
     private
@@ -191,10 +197,10 @@ module GoogleContactsApi
       entry_elements = 
         [["atom:entry", {attr: {"xmlns:atom" => 'http://www.w3.org/2005/Atom', "xmlns:gd" => 'http://schemas.google.com/g/2005'}, children: [
                                                                                                                                              ["atom:category", {attr: {'scheme' => 'http://schemas.google.com/g/2005#kind', 'term' => 'http://schemas.google.com/contact/2008#contact'}}],
-                                                                                                                                             ["gd:name", {children:  [["gd:fullName", {value: options[:fullname]}], 
-                                                                                                                                                                      ["gd:familyName", {value: options[:familyname]}]]}],
-                                                                                                                                             ['atom:content', {attr: {'type' => 'text'}, value: 'Notes'}],
-                                                                                                                                             ['gd:email', {attr: {'rel' => 'http://schemas.google.com/g/2005#work', 'primary' => 'true', 'address'=>options[:email], 'displayName' => options[:displayname]}}]
+                                                                                                                                             ["gd:name", {children: [["gd:fullName", {value: options[:fullname]}], 
+                                      ["gd:familyName", {value: options[:familyname]}]]}],
+                                      ['atom:content', {attr: {'type' => 'text'}, value: 'Notes'}],
+                                      ['gd:email', {attr: {'rel' => 'http://schemas.google.com/g/2005#work', 'primary' => 'true', 'address'=>options[:email], 'displayName' => options[:displayname]}}]
                                                                                                                                             ]}
          ]]
 

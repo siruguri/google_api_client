@@ -23,7 +23,7 @@ module GoogleApiClient
     def authenticate
       # elements of auth 
 
-      # Only authenticate once
+      # Only authenticate once; return '200' if successful; raise error if not
       return '200' if @token
 
       path = '/accounts/ClientLogin'
@@ -41,7 +41,7 @@ module GoogleApiClient
         # Returning the code
         '200'
       else
-        nil
+        raise AuthenticationException, "Authentication failed."
       end
     end
 
@@ -68,6 +68,7 @@ module GoogleApiClient
     def post_data(post_data, headers: nil, endpoint: nil) 
       # Post to the endpoint
       _e = endpoint || @endpoint
+      puts "Posting ... \n #{post_data} \n ... to #{_e}"
 
       if headers.nil?
         h = @headers
@@ -75,6 +76,7 @@ module GoogleApiClient
         h = @headers.merge headers
       end
 
+      self.authenticate
       @http.post(_e, post_data, h)
     end
   end
