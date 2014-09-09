@@ -1,4 +1,3 @@
-require 'pry-byebug'
 require 'xmlsimple'
 require 'pp'
 require_relative "./google_api_client"
@@ -145,7 +144,7 @@ module GoogleContactsApi
           batches << current_batch 
           # puts current_batch.to_s
 
-          current_batch = @api_client.initialize_batch
+          current_batch = self.initialize_batch
           current_batch['feed'][0]['entry'] = []
         end
       end
