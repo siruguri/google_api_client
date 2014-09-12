@@ -68,7 +68,7 @@ module GoogleApiClient
     def post_data(post_data, headers: nil, endpoint: nil) 
       # Post to the endpoint
       _e = endpoint || @endpoint
-      puts "Posting ... \n #{post_data} \n ... to #{_e}"
+      # puts "Posting ... \n #{post_data} \n ... to #{_e}"
 
       self.authenticate
       h = @headers

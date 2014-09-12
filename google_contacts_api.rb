@@ -38,10 +38,20 @@ module GoogleContactsApi
 
     def add_name(options)      
       if @_h['gd:name'].nil?
+        @_h["title"]=[{'type'=> 'text', 'content' => options[:fullName]}]
         @_h['gd:name'] = []
-        @_h['gd:name'] << {'gd:givenName' => [options[:givenName]], 'gd:familyName' => [options[:familyName]],
-          'gd:fullName' => [options[:fullName]]}
+        @_h['gd:name'] << {'gd:givenName' => [options[:givenName]], 'gd:familyName' => [options[:familyName]]
+          }
       end
+      self
+    end
+
+    def add_organization(options)
+      @_h['gd:organization'] ||= []
+      @_h['gd:organization'] << 
+        {'rel' => "http://schemas.google.com/g/2005#work", 'primary' => 'true',
+        'gd:orgName' => [options[:organization_name]]}
+
       self
     end
 
@@ -68,36 +78,27 @@ module GoogleContactsApi
       @contact_list = nil
     end
 
-    def initialize_batch
-      _h = {}
-      _h['feed'] = []
-      _h['feed'] << {'xmlns' => 'http://www.w3.org/2005/Atom', 'xmlns:gContact' => 'http://schemas.google.com/contact/2008',
-        'xmlns:gd' => 'http://schemas.google.com/g/2005', 'xmlns:batch' => 'http://schemas.google.com/gdata/batch'}
+    def contact_list_info
+      mesg = ''
+      mesg += "#{@contact_list['entry']?(@contact_list['entry'].size):0} entries.\n"
+      mesg += "#{@contact_list.to_s.size} length message.\n"
 
-      _h['feed'][0]['category'] = []
-      _h['feed'][0]['category'] << {'scheme' => 'http://schemas.google.com/g/2005#kind',
-        'term' => 'http://schemas.google.com/g/2008#contact'}
+      # mesg += @contact_list.to_s
+      mesg += @atom_body
 
-      _h
+      mesg
     end
 
     def fetch_all_contacts
       self.authenticate
       contact_resp = @http.get(@endpoint, @headers)
+
+      @atom_body = contact_resp.body
       @contact_list = atom_to_array contact_resp.body
     end
 
     def new_contact_atom
       return ContactAtom.new
-    end
-    def new_contact(name_card)
-      # Returns the response
-      puts "Creating new contact..."
-      new_entry_xml = generate_atom(name_card)
-      headers = {'Content-Type' => 'application/atom+xml'}
-
-      resp=self.post_data(new_entry_xml, headers: headers); pp resp.body
-      atom_to_array(resp.body)
     end
 
     def delete_all_contacts(atom_entries)
@@ -116,7 +117,7 @@ module GoogleContactsApi
 
       counter = 0
       batch_id = 1
-      current_batch = self.initialize_batch
+      current_batch = initialize_batch
       current_batch['feed'][0]['entry'] = []
 
       entries.each do |entry|
@@ -131,6 +132,7 @@ module GoogleContactsApi
             child.merge! entry
           end
         elsif command == 'delete'
+          # TODO this only works for an array representing the atom feed, not for ContactAtom objects
           child.merge! entry.select { |k,v| k=='id' || k == 'link'}
         end
 
@@ -142,9 +144,9 @@ module GoogleContactsApi
 
         if counter % 100 == 0
           batches << current_batch 
-          # puts current_batch.to_s
+          puts ">>> Created a batch"
 
-          current_batch = self.initialize_batch
+          current_batch = initialize_batch
           current_batch['feed'][0]['entry'] = []
         end
       end
@@ -156,14 +158,30 @@ module GoogleContactsApi
 
       batches.each do |b|
         feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); 
+        puts ">>> Sending batch with #{b['feed'][0]['entry'].size} entries"
+        # pp feed_post
         feed_post = "<?xml version='1.0' encoding='UTF-8'?>\n#{feed_post}"
-        resp = self.post_data(feed_post, endpoint: @batch_endpoint); pp resp.body
+        resp = self.post_data(feed_post, endpoint: @batch_endpoint, headers: {'Content-Type' => 'application/atom+xml'})
+        pp resp.body
       end
 
       # TODO Return a response at the end of this.
     end
 
     private
+    def initialize_batch
+      _h = {}
+      _h['feed'] = []
+      _h['feed'] << {'xmlns' => 'http://www.w3.org/2005/Atom', 'xmlns:gContact' => 'http://schemas.google.com/contact/2008',
+        'xmlns:gd' => 'http://schemas.google.com/g/2005', 'xmlns:batch' => 'http://schemas.google.com/gdata/batch'}
+
+      _h['feed'][0]['category'] = []
+      _h['feed'][0]['category'] << {'scheme' => 'http://schemas.google.com/g/2005#kind',
+        'term' => 'http://schemas.google.com/g/2008#contact'}
+
+      _h
+    end
+
     def atom_xml(elt_array) 
       str = ''
       elt_array.each do |elt|
@@ -190,20 +208,6 @@ module GoogleContactsApi
       end
 
       str
-    end
-
-    def generate_atom(options)
-      entry_elements = 
-        [["atom:entry", {attr: {"xmlns:atom" => 'http://www.w3.org/2005/Atom', "xmlns:gd" => 'http://schemas.google.com/g/2005'}, children: [
-                                                                                                                                             ["atom:category", {attr: {'scheme' => 'http://schemas.google.com/g/2005#kind', 'term' => 'http://schemas.google.com/contact/2008#contact'}}],
-                                                                                                                                             ["gd:name", {children: [["gd:fullName", {value: options[:fullname]}], 
-                                      ["gd:familyName", {value: options[:familyname]}]]}],
-                                      ['atom:content', {attr: {'type' => 'text'}, value: 'Notes'}],
-                                      ['gd:email', {attr: {'rel' => 'http://schemas.google.com/g/2005#work', 'primary' => 'true', 'address'=>options[:email], 'displayName' => options[:displayname]}}]
-                                                                                                                                            ]}
-         ]]
-
-      atom_xml(entry_elements)
     end
 
     def atom_to_array(atom_str)
