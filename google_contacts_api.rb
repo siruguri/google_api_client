@@ -178,7 +178,7 @@ module GoogleContactsApi
       t=XmlSimple.xml_in bd
 
       errs = t["entry"].select do |status_ent|  
-        status_ent["status"][0]['code'] != '200'
+        status_ent["status"][0]['code'] != '201' and status_ent["status"][0]['code'] != '200'
       end
 
       $stderr.write("#{errs.count} errors found.\n")
