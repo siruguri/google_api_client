@@ -1,5 +1,7 @@
 require 'xmlsimple'
 require 'pp'
+#require 'pry-byebug'
+
 require_relative "./google_api_client"
 
 module GoogleContactsApi
@@ -132,7 +134,8 @@ module GoogleContactsApi
             child.merge! entry
           end
         elsif command == 'delete'
-          # TODO this only works for an array representing the atom feed, not for ContactAtom objects
+          # TODO the delete cmd only works for an array representing the atom feed, not for ContactAtom objects;
+          # It should be made symmetric with the insert/update command
           child.merge! entry.select { |k,v| k=='id' || k == 'link'}
         end
 
@@ -156,19 +159,31 @@ module GoogleContactsApi
         # puts current_batch.to_s
       end
 
-      batches.each do |b|
+      batches.each_with_index do |b, i|
         feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); 
-        puts ">>> Sending batch with #{b['feed'][0]['entry'].size} entries"
+        puts ">>> Sending batch #{i} with #{b['feed'][0]['entry'].size} entries; xml size = #{feed_post.length}"
         # pp feed_post
         feed_post = "<?xml version='1.0' encoding='UTF-8'?>\n#{feed_post}"
         resp = self.post_data(feed_post, endpoint: @batch_endpoint, headers: {'Content-Type' => 'application/atom+xml'})
-        pp resp.body
+        print_errors resp
+        # bd= resp.body ; binding.pry
       end
 
       # TODO Return a response at the end of this.
     end
 
     private
+    def print_errors resp
+      bd=resp.body
+      t=XmlSimple.xml_in bd
+
+      errs = t["entry"].select do |status_ent|  
+        status_ent["status"][0]['code'] != '200'
+      end
+
+      $stderr.write("#{errs.count} errors found.\n")
+    end
+
     def initialize_batch
       _h = {}
       _h['feed'] = []
