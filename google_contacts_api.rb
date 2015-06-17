@@ -1,5 +1,7 @@
 require 'xmlsimple'
 require 'pp'
+#require 'pry-byebug'
+
 require_relative "./google_api_client"
 
 module GoogleContactsApi
@@ -147,9 +149,6 @@ module GoogleContactsApi
             child.merge! entry
           end
         elsif command == 'delete'
-
-          # TODO this only works for an array representing the atom feed, not for ContactAtom objects
-          # child.merge! entry.select { |k,v| k=='id' || k == 'link'}
           child.merge!({'gd:etag' => "#{entry['gd$etag']}", 'id' => [entry['link'][1]['href']]})
         end
 
@@ -172,14 +171,13 @@ module GoogleContactsApi
         # puts current_batch.to_s
       end
 
-      batches.each do |b|
-
+      batches.each_with_index do |b, i|
         feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); 
-        puts ">>> Sending batch with #{b['feed'][0]['entry'].size} entries"
         feed_post = "<?xml version='1.0' encoding='UTF-8'?>\n#{feed_post}"
+        puts ">>> Sending batch #{i} with #{b['feed'][0]['entry'].size} entries; xml size = #{feed_post.length}"
 
         resp = self.post_data(feed_post, endpoint: @host + @batch_endpoint, headers: {'Content-Type' => 'application/atom+xml'})
-        pp resp.body
+        print_errors resp
       end
 
       # TODO Return a response at the end of this.
@@ -199,6 +197,17 @@ module GoogleContactsApi
       end
     end
     
+    def print_errors resp
+      bd=resp.body
+      t=XmlSimple.xml_in bd
+
+      errs = t["entry"].select do |status_ent|  
+        status_ent["status"][0]['code'] != '201' and status_ent["status"][0]['code'] != '200'
+      end
+
+      $stderr.write("#{errs.count} errors found.\n")
+    end
+
     def initialize_batch
       _h = {}
       _h['feed'] = []
