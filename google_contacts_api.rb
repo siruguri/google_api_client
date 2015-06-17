@@ -71,30 +71,40 @@ module GoogleContactsApi
 
   class GoogleContactsApi < GoogleApiClient::GoogleApiClient
     attr_reader :contact_list
+    attr_accessor :batch_endpoint
+    
     def initialize config
       super config
-      @endpoint= config['endpoint'] || '/m8/feeds/contacts/default/full';
-      @batch_endpoint = config['batch_endpoint'] || '/m8/feeds/contacts/default/full/batch'
+      @endpoint= config['endpoint'] || '/m8/feeds/contacts/cclr.org/full'
+      @host = config['host'] || 'https://www.google.com'
+      @batch_endpoint = config['batch_endpoint'] || '/m8/feeds/contacts/cclr.org/private/full/batch'
       @contact_list = nil
     end
 
     def contact_list_info
       mesg = ''
-      mesg += "#{@contact_list['entry']?(@contact_list['entry'].size):0} entries.\n"
-      mesg += "#{@contact_list.to_s.size} length message.\n"
+      mesg += "#{@contact_list.size} entries.\n"
 
       # mesg += @contact_list.to_s
-      mesg += @atom_body
+      mesg += pp(@contact_list)
 
       mesg
     end
 
     def fetch_all_contacts
       self.authenticate
-      contact_resp = @http.get(@endpoint, @headers)
+      contact_resp = all_contacts_data
 
       @atom_body = contact_resp.body
       @contact_list = atom_to_array contact_resp.body
+    end
+
+    def fetch_one_contact(id_url)
+      self.authenticate
+      execute_hash = {uri: id_url, # "https://www.google.com/m8/feeds/contacts/cclr.org/full",
+                      headers: { 'GData-Version' => '3.0', 'Content-Type' => 'application/atom+xml'}}
+      resp = @client.execute execute_hash
+      puts resp.body
     end
 
     def new_contact_atom
@@ -111,7 +121,7 @@ module GoogleContactsApi
       end
     end
 
-    def send_batch(entries, command='insert')
+    def send_batch(entries, command='create')
       # entries is assumed to be an object of class ContactAtom
       batches = []
 
@@ -122,22 +132,28 @@ module GoogleContactsApi
 
       entries.each do |entry|
         counter += 1
-        child = {'batch:id' => [batch_id], 'batch:operation' => [{'type' => "#{command}"}]}
+        child = {'category' => [{'scheme' => 'http://schemas.google.com/g/2005#kind', 'term' => 'http://schemas.google.com/g/2008#contact'}],
+                 'batch:id' => ["#{command}"], 'batch:operation' => [{'type' => "#{command == 'delete' ? command : 'insert'}"}]}
+
+        if command == 'delete'
+          child.merge!({'gd:etag' => 'deleteContactEtag'})
+        end
         batch_id += 1
 
-        if command == 'insert'
+        if command == 'create'
           if entry.class==ContactAtom
-            child.merge! entry.children
+            child.merge!(entry.children.delete_if { |k, v| k == 'atom:category' })
           else
             child.merge! entry
           end
         elsif command == 'delete'
+
           # TODO this only works for an array representing the atom feed, not for ContactAtom objects
-          child.merge! entry.select { |k,v| k=='id' || k == 'link'}
+          # child.merge! entry.select { |k,v| k=='id' || k == 'link'}
+          child.merge!({'gd:etag' => "#{entry['gd$etag']}", 'id' => [entry['link'][1]['href']]})
         end
 
         if child['atom:category'] # There won't be any, if we didn't run an insert.
-          child['category'] = child['atom:category'] 
           child.delete 'atom:category'
         end
         current_batch['feed'][0]['entry'] << child
@@ -157,11 +173,12 @@ module GoogleContactsApi
       end
 
       batches.each do |b|
+
         feed_post = XmlSimple.xml_out(b, {'KeepRoot' => true}); 
         puts ">>> Sending batch with #{b['feed'][0]['entry'].size} entries"
-        # pp feed_post
         feed_post = "<?xml version='1.0' encoding='UTF-8'?>\n#{feed_post}"
-        resp = self.post_data(feed_post, endpoint: @batch_endpoint, headers: {'Content-Type' => 'application/atom+xml'})
+
+        resp = self.post_data(feed_post, endpoint: @host + @batch_endpoint, headers: {'Content-Type' => 'application/atom+xml'})
         pp resp.body
       end
 
@@ -169,16 +186,24 @@ module GoogleContactsApi
     end
 
     private
+    def all_contacts_data
+      if 1
+        execute_hash = {uri: @host + @endpoint, # "https://www.google.com/m8/feeds/contacts/cclr.org/full",
+                        parameters: { 'alt' => 'json',
+                                      'max-results' => '100000' },
+                        headers: { 'GData-Version' => '3.0', 'Content-Type' => 'application/atom+xml'}}
+        @client.execute execute_hash
+      else
+        # Pre Google OAuth 2.0
+        @client.retrieve_data(@endpoint, @headers)
+      end
+    end
+    
     def initialize_batch
       _h = {}
       _h['feed'] = []
       _h['feed'] << {'xmlns' => 'http://www.w3.org/2005/Atom', 'xmlns:gContact' => 'http://schemas.google.com/contact/2008',
         'xmlns:gd' => 'http://schemas.google.com/g/2005', 'xmlns:batch' => 'http://schemas.google.com/gdata/batch'}
-
-      _h['feed'][0]['category'] = []
-      _h['feed'][0]['category'] << {'scheme' => 'http://schemas.google.com/g/2005#kind',
-        'term' => 'http://schemas.google.com/g/2008#contact'}
-
       _h
     end
 
@@ -211,7 +236,9 @@ module GoogleContactsApi
     end
 
     def atom_to_array(atom_str)
-      return XmlSimple.xml_in(atom_str)
+      #return XmlSimple.xml_in(atom_str)
+
+      JSON.parse(atom_str)['feed']['entry']
     end
 
     def get_feed(uri, headers=nil)

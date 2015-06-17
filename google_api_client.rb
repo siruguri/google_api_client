@@ -1,5 +1,9 @@
 require 'net/https'
 require 'uri'
+require 'google/api_client'
+require 'google/api_client/client_secrets'
+require 'google/api_client/auth/installed_app'
+
 
 module GoogleApiClient
   class BadConfigException < Exception
@@ -12,7 +16,7 @@ module GoogleApiClient
       raise BadConfigException, "Config is empty" if config.nil?
 
       @config=config
-
+      @headers = { 'GData-Version' => '3.0', 'Content-Type' => 'application/atom+xml', 'If-Match' => '*'}
       @token=nil
       @http = Net::HTTP.new('www.google.com', 443)
       @http.use_ssl = true
@@ -26,19 +30,23 @@ module GoogleApiClient
       # Only authenticate once; return '200' if successful; raise error if not
       return '200' if @token
 
-      path = '/accounts/ClientLogin'
-      data = "accountType=#{@config['client_login_account_type']}&Email=#{@config['client_login_email']}&Passwd=#{@config['client_login_pwd']}&service=#{@config['client_login_service_name']}&source=#{@config['source']}"
-      headers = {"Content-Type"=>"application/x-www-form-urlencoded"}
+      # Initialize the client.
+      @client = Google::APIClient.new(
+        :application_name => 'Example Ruby application',
+        :application_version => '1.0.0'
+      )
 
-      # Post the request and print out the response to retrieve our authentication token
-      resp = @http.post(path, data, headers)
-      if resp.code == '200' then
-        @token = resp.body[/Auth=(.*)/, 1]
-        @headers={}
-        # Build our headers hash and add the authorization token
-        @headers["Authorization"] = "GoogleLogin auth=#{@token}"
+      # Initialize Google+ API. Note this will make a request to the
+      # discovery service every time, so be sure to use serialization
+      # in your production code. Check the samples for more details.
 
-        # Returning the code
+      # Load client secrets from your client_secrets.json.
+#      client_secrets = Google::APIClient::ClientSecrets.load
+      @client.authorization = :google_app_default  # in a later version, this will become the default
+      @client.authorization.fetch_access_token!
+      @token = true
+      
+      if 1
         '200'
       else
         raise AuthenticationException, "Authentication failed."
@@ -76,7 +84,15 @@ module GoogleApiClient
         h = @headers.merge headers
       end
 
-      @http.post(_e, post_data, h)
+      if 1
+        execute_hash = {uri: _e, # "https://www.google.com/m8/feeds/contacts/cclr.org/full/batch",
+                        headers: h, http_method: 'post', body: post_data}
+        ehg = {uri: 'https://www.google.com/m8/feeds/contacts/cclr.org/full/3ac44a08ef189f3',
+               headers: h}
+        @client.execute execute_hash
+      else
+        @http.post(_e, post_data, h)
+      end
     end
   end
 
